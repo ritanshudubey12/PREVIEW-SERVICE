@@ -1,0 +1,15 @@
+# Secrets / credentials - never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+node_modules/
+dist/
+coverage/
+*.log
+
+# Postman: environment/run files contain live bearer tokens
+postman/*environment.json
+postman/report.json

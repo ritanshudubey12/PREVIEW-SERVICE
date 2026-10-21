@@ -1,0 +1,46 @@
+{
+  "name": "preview-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "node --env-file=.env --import tsx --watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node --env-file=.env dist/server.js",
+    "migrate": "node --env-file=.env --import tsx src/db/migrate.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "dev:token": "node --env-file=.env --import tsx scripts/devToken.ts",
+    "smoke": "node --env-file=.env --import tsx scripts/smoke.ts",
+    "postman:build": "node --import tsx scripts/buildPostmanCollection.ts",
+    "postman:env": "node --env-file=.env --import tsx scripts/postmanEnv.ts",
+    "postman": "node --env-file=.env --import tsx scripts/postmanRun.ts",
+    "test:postman": "node --env-file=.env --import tsx scripts/postmanRun.ts",
+    "test:postman:success": "node --env-file=.env --import tsx scripts/postmanRun.ts success",
+    "test:postman:negative": "node --env-file=.env --import tsx scripts/postmanRun.ts negative"
+  },
+  "dependencies": {
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
+    "jose": "^6.2.13",
+    "pg": "^8.23.1",
+    "pino": "^10.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.5",
+    "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
+    "newman": "^6.2.3",
+    "supertest": "^7.3.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5",
+    "yaml": "^2.9.1"
+  }
+}

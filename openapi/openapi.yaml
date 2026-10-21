@@ -1,0 +1,184 @@
+openapi: 3.1.0
+info:
+  title: TriostackOne Preview API
+  version: 1.0.0
+  description: >
+    Create, resolve and revoke temporary previews of an exact page revision without publishing.
+    Protected operations require `Authorization: Bearer <JWT>`; identity is taken from the verified
+    token only. X-Tenant-Id / X-Organization-Id / X-User-Id / X-Workspace-Id / X-Software-Id are
+    never authoritative: a value that disagrees with the token is rejected with 403.
+servers:
+  - url: http://localhost:3000
+    description: Local development
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/pages/{pageId}/previews:
+    post:
+      operationId: createPreview
+      summary: Create a preview session for a page revision
+      parameters:
+        - $ref: '#/components/parameters/PageId'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePreviewRequest'
+      responses:
+        '201':
+          description: Preview created. The raw token appears only in this response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatePreviewResponse'
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '413': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+        '500': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+  /api/v1/previews/{token}:
+    get:
+      operationId: resolvePreview
+      summary: Resolve a preview token to renderer-safe context
+      description: The preview token is the credential; no JWT is needed. Responses are `no-store`, `noindex`, `no-referrer`.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Token'
+      responses:
+        '200':
+          description: Active preview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResolvePreviewResponse'
+        '410':
+          description: Unknown, malformed, expired or revoked (indistinguishable by design)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429': { $ref: '#/components/responses/Error' }
+        '500': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: revokePreview
+      summary: Revoke a preview (creator or owner/admin/editor in the same tenant/org/workspace)
+      parameters:
+        - $ref: '#/components/parameters/Token'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '204':
+          description: Revoked (idempotent)
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+        '500': { $ref: '#/components/responses/Error' }
+  /health/live:
+    get:
+      operationId: liveness
+      security: []
+      responses:
+        '200':
+          description: Process is up
+  /health/ready:
+    get:
+      operationId: readiness
+      security: []
+      responses:
+        '200':
+          description: Dependencies reachable
+        '503':
+          description: Not ready
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    PageId:
+      name: pageId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Token:
+      name: token
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9_-]{43}$' }
+    RequestId:
+      name: X-Request-Id
+      in: header
+      required: false
+      schema: { type: string, pattern: '^[A-Za-z0-9._-]{8,64}$' }
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    CreatePreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [revisionId]
+      properties:
+        revisionId: { type: string, format: uuid }
+        expiresInSeconds:
+          type: integer
+          minimum: 60
+          maximum: 86400
+          default: 1800
+          description: Bounds are server policy (PREVIEW_TTL_*).
+    CreatePreviewResponse:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { const: true }
+        data:
+          type: object
+          required: [previewUrl, expiresAt]
+          properties:
+            previewUrl: { type: string, format: uri }
+            expiresAt: { type: string, format: date-time }
+        meta: { $ref: '#/components/schemas/Meta' }
+    ResolvePreviewResponse:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { const: true }
+        data:
+          type: object
+          required: [websiteId, pageId, revisionId, expiresAt, readOnly]
+          properties:
+            websiteId: { type: string, format: uuid }
+            pageId: { type: string, format: uuid }
+            revisionId: { type: string, format: uuid }
+            expiresAt: { type: string, format: date-time }
+            readOnly: { const: true }
+        meta: { $ref: '#/components/schemas/Meta' }
+    ErrorEnvelope:
+      type: object
+      required: [success, error, meta]
+      properties:
+        success: { const: false }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [VALIDATION_ERROR, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, PREVIEW_UNAVAILABLE, RATE_LIMITED, UPSTREAM_UNAVAILABLE, INTERNAL_ERROR]
+            message: { type: string }
+        meta: { $ref: '#/components/schemas/Meta' }
+    Meta:
+      type: object
+      required: [requestId]
+      properties:
+        requestId: { type: string }

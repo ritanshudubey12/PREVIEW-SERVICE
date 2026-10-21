@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: preview-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "127.0.0.1:${DB_PORT}:5432" # bound to localhost only: the database is private
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Optional: run the API itself in Docker with `docker compose --profile app up -d --build`
+  api:
+    profiles: ["app"]
+    build: .
+    container_name: preview-api
+    restart: unless-stopped
+    env_file: .env # credentials come from the git-ignored .env, never from this file
+    environment:
+      NODE_ENV: development
+      DB_HOST: db
+      DB_PORT: "5432"
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
